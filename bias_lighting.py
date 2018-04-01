@@ -9,6 +9,7 @@ from array import array
 from time import sleep
 import numpy as np
 import time
+import pdb
 
 SOLID = b'\x00'
 MIMIC = b'\x01'
@@ -42,9 +43,10 @@ def blackout(strip):
         strip.setPixelColor(i, 0)
     strip.show()
 
-def do_nothing():
+def do_nothing(*args):
     pass
 
+# Yields every n elements in iterable as sub-list
 def group(iterable, n):
     for i in xrange(0, len(iterable), n):
         yield iterable[i:i+n]
@@ -107,22 +109,26 @@ def green(c):
 def blue(c):
     return c & 0xFF
 
-# Maintains the ember effect
+# Maintains the ember effect. Args are the neopixel strip object with # number of
+# LEDs, an array of length # containing floats between -1 and 1 that marks the
+# state of transition for each LED. c is a 2d array #x7 where each pixel gets a 7
+# byte array. The first 3 are the rgb values of the respective pixel's start color.
+# The next 3 are the rgb's of the end color. The last byte is the number of frames
+# to transition between one color to another and back
 def ember_ani(strip, states, c):
     #print "states: " + str(states)
     #print "c: " + str(c)
-    # TODO: c contains triplets of int, int, and float. Can't use c[n][3], have to extract first byte from c[n][1]
     new_states = states
     for n, s in enumerate(states):
         # Calculate new state
-        s = (2.0 / c[n][2]) + s
+        s = (2.0 / c[n][6]) + s
         if (s >= 1): s = -1
         new_states[n] = s
         
         # Normalize to the [rgb1, rgb2] range, and convert to chars
-        r = lineate(red(c[n][0]), red(c[n][1]), s)
-        g = lineate(green(c[n][0]), green(c[n][1]), s)
-        b = lineate(blue(c[n][0]), blue(c[n][1]), s)
+        r = lineate(c[n][0], c[n][3], s)
+        g = lineate(c[n][1], c[n][4], s)
+        b = lineate(c[n][2], c[n][5], s)
 
         strip.setPixelColor(n, neopixel.Color(r, g, b))
         #print("Setting pixel %d to (%x, %x, %x)" % (n, r, g, b))
@@ -173,31 +179,40 @@ def music_fn(data, strip):
 # color is transitioning, (negative towards rgb1 and positive towards rgb2), and
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
-def ember_fn(com, strip):
-    n = ord(com.read(1))
-    data = []
-    for i in range(n):
-        # Read in the start color, end color, and speed
-        c = com.read(3)
-        start = neopixel.Color(ord(c[0])/BRIGHT_DIV, ord(c[1])/BRIGHT_DIV, ord(c[2])/BRIGHT_DIV)
-        c = com.read(3)
-        end = neopixel.Color(ord(c[0])/BRIGHT_DIV, ord(c[1])/BRIGHT_DIV, ord(c[2])/BRIGHT_DIV)
-        speed = ord(com.read(1))
+def ember_fn(data, strip):
+    if (not len(data) % 7 == 0):
+        raise Exception("ember_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
-        # Put it into data as a tuple
-        data.append((start, end, speed))
+    # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
+    # color. The next 3 are the end color, and the last byte represents the number
+    # of frames it should take to transition from one color to the other and back
+    pixels = np.empty((len(data)/7, 7), dtype=np.int8)
+    for i, p in enumerate(group(data, 7)):
+        # Start color
+        pixels[i][0] = ord(p[0])/BRIGHT_DIV
+        pixels[i][1] = ord(p[1])/BRIGHT_DIV
+        pixels[i][2] = ord(p[2])/BRIGHT_DIV
 
-    # If n != strip.numPixels, autofill the rest of data to match the right size
-    # Then convert to np matrix of floats. This means that extracting rgb values
-    # requires converting them to ints
+        # End color
+        pixels[i][3] = ord(p[3])/BRIGHT_DIV
+        pixels[i][4] = ord(p[4])/BRIGHT_DIV
+        pixels[i][5] = ord(p[5])/BRIGHT_DIV
+
+        # Transition speed
+        pixels[i][6] = ord(p[6])
+
+    # If the number of pixels given in data are less than strip.numPixels(),
+    # then copy paste what was given until it's equal. If the total pixels isn't
+    # a perfect multiple, then crop off the overflow
     m = strip.numPixels()
-    data = np.array(data * (m / n) + data[:(m % n)])
+    n = len(pixels)
+    pixels = np.concatenate((np.tile(pixels, (m / n, 1)), pixels[:(m % n)]))
 
     # Populate the initial state between rgb1 and rgb2 and direction of change.
     # Will be a random number in range [-1,1)
     states = np.random.ranf(m) * 2 - 1
 
-    t = Animator(0.02, ember_ani, strip, states, data)
+    t = Animator(0.02, ember_ani, strip, states, pixels)
     t.start()
 
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
@@ -233,7 +248,7 @@ if not u.is_open:
 
 print("Opened port")
 
-t = Animator(0.5, pong_ani, strip, 0, neopixel.Color(255, 0, 127))
+t = Animator(0.5, do_nothing, strip, 0)
                                 # t is global timer object, it'll get redefined
                                 # and restarted by any command fn that requires
                                 # continued animation after returning
