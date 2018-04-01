@@ -32,6 +32,7 @@ BRIGHT_DIV = 8  #Any brightness received is divided by this number to save power
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
 def setPixel(i, c, s):
+    print("i=%s c=%s s=%s" % (str(i), str(c), str(s)))
     c = neopixel.Color(ord(c[0])/BRIGHT_DIV, ord(c[1])/BRIGHT_DIV, ord(c[2])/BRIGHT_DIV)
     #print("Setting pixel %d to %d" % (i, c))
     s.setPixelColor(i, c)
@@ -44,6 +45,9 @@ def blackout(strip):
 def do_nothing():
     pass
 
+def group(iterable, n):
+    for i in xrange(0, len(iterable), n):
+        yield iterable[i:i+n]
 
 ### Command functions. These are called immediately after receiving a command
 ### from the COM
@@ -127,18 +131,31 @@ def ember_ani(strip, states, c):
 
     return new_states
 
-# SOLID function
-def solid_fn(com, strip):
-    for i in range(strip.numPixels()):
-        rgb = com.read(3)
-        setPixel(i, rgb, strip)
+# SOLID function. Sets pixels to solid static color. data is a byte array of the
+# required RGB values. It's length should be a multiple of 3
+def solid_fn(data, strip):
+    if (not len(data) % 3 == 0):
+        raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
+
+    # Separate data into groups of 3 byte strings, and put each of those strings
+    # into a numpy array. Copy and paste that data over and over again until the
+    # array length matches the number of pixels
+    pixels = np.empty(len(data)/3, dtype='|S3')
+    for i, p in enumerate(group(data, 3)): pixels[i] = p
+    m = strip.numPixels()
+    n = len(pixels)
+    pixels = np.array(np.append(np.tile(pixels, m / n), pixels[:(m % n)]))
+
+    # Set each pixel color
+    for i, p in enumerate(pixels):
+        setPixel(i, p, strip)
 
     strip.show()
 
-def mimic_fn(com, strip):
+def mimic_fn(data, strip):
     pass
 
-def music_fn(com, strip):
+def music_fn(data, strip):
     pass
 
 # EMBER fn. This animation makes each pixel transition between two given colors
@@ -186,10 +203,10 @@ def ember_fn(com, strip):
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
 # pixel will suddenly change color. The random numbers that determine the time
 # periods and the new colors are determined on a gaussian curve
-def twinkle_fn(com, strip):
+def twinkle_fn(data, strip):
     pass
 
-def config_fn(com, strip):
+def config_fn(data, strip):
     pass
 
 # Dictionary mapping command codes to their corresponding functions
@@ -204,7 +221,7 @@ commands = {
 ### Main loop here
 # TODO: Read config file
 
-strip = neopixel.Adafruit_NeoPixel(36, 18, 800000, 5, False)
+strip = neopixel.Adafruit_NeoPixel(92, 18, 800000, 5, False)
 strip.begin()
 
 print("Started strip")
@@ -226,14 +243,27 @@ try:
     while True:
         cmd = u.read(1)
         if cmd != b'':
-            print("Got " + str(cmd))
+            print("Got %s" % cmd)
             
             # Stop any animations
             t.stop()
+           
+            try:
+                #TODO: Handle timeout exceptions
+                # Get the size of the data
+                n = u.read(1)
+                data = u.read(ord(n))
+    
+                if (not len(data) == ord(n)):
+                    raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (ord(n), len(data)))
+    
+                # Command received, use to code to call the corresponding fn, which will
+                # hanndle the rest of the serial communication and edit the strip
+                commands[cmd[0]](data, strip)
+            except Exception as err:
+                print(err)
+                raise
 
-            # Command received, use to code to call the corresponding fn, which will
-            # hanndle the rest of the serial communication and edit the strip
-            commands[cmd[0]](u, strip)
 except KeyboardInterrupt:
     t.stop()
     u.close()
