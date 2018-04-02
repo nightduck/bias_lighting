@@ -9,27 +9,19 @@ from array import array
 from time import sleep
 import numpy as np
 import time
+import json
 import pdb
 
 SOLID = b'\x00'
-MIMIC = b'\x01'
+CONFIG = b'\x01'
 MUSIC = b'\x02'
 EMBER = b'\x03'
-CONFIG = b'\x04'
+MIMIC = b'\x04'
 
-# Any variables that could permanently damage the setup don't go in config file
-BRIGHT_DIV = 8  #Any brightness received is divided by this number to save power
+# These are the default constants unless overridden by the config file.
+BRIGHT_DIV = 4  #Any brightness received is divided by this number to save power
+NUM_LEDS = 10
 
-##Take screenshot
-#with mss.mss() as sct:
-#    monitor = {'top':0,'left':0,'width':53,'height':91}
-#
-#    img = np.array(sct.grab(monitor))
-#
-##Get average pixel from image
-#init_centers = np.array([[64, 64, 64],[64, 64, 192],[64,192,64],[64,192,192],[192,64,64],[192, 64, 192],[192,192,64],[192,192,192]],np.int8)
-#avg = KMeans(n_clusters=8, init=init_centers, n_init=1, max_inter=100, tol=1, algorithm='elkan')
-#
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
 def setPixel(i, c, s):
@@ -51,14 +43,14 @@ def group(iterable, n):
     for i in xrange(0, len(iterable), n):
         yield iterable[i:i+n]
 
-### Command functions. These are called immediately after receiving a command
-### from the COM
+
+######################################################################################
+
 
 ### Automation functions. These are called repeatedly after a command is called to handle
 ### pi-driven animations. Functions should take at least 2 arguments, first being the strip
 ### object, and the second being a piece of peristant data (type is whatever you
 ### it to be. This can be ignored if your fn calls are independent
-# TODO: Write some functions, and then a common class to bring it all together
 
 # Thread that handles animations. Pass the interval between fn calls, the
 # function it should execute as target, and any extra arguments will be passed
@@ -92,6 +84,7 @@ def pong_ani(strip, persist_data, color):
     strip.setPixelColor(persist_data, color)
     strip.show()
     return persist_data + 1 if (persist_data + 1 < strip.numPixels()) else 0
+
 
 # Utility fn for ember_ani. For 2 numbers a and b, this returns a value between
 # the two given the weighting factor c, which is between 0 and 1 (actually might
@@ -137,6 +130,13 @@ def ember_ani(strip, states, c):
 
     return new_states
 
+
+#############################################################################
+
+
+### Command functions. These are called immediately after receiving a command
+### from the COM
+
 # SOLID function. Sets pixels to solid static color. data is a byte array of the
 # required RGB values. It's length should be a multiple of 3
 def solid_fn(data, strip):
@@ -163,6 +163,7 @@ def mimic_fn(data, strip):
 
 def music_fn(data, strip):
     pass
+
 
 # EMBER fn. This animation makes each pixel transition between two given colors
 # Each pixel is independent of each other.
@@ -215,14 +216,28 @@ def ember_fn(data, strip):
     t = Animator(0.02, ember_ani, strip, states, pixels)
     t.start()
 
+
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
 # pixel will suddenly change color. The random numbers that determine the time
 # periods and the new colors are determined on a gaussian curve
 def twinkle_fn(data, strip):
     pass
 
+
+# CONFIG fn. It is followed by 2 bytes which determine the number of LEDs on the
+# strip. It is then followed by an arbitrary number of bytes the indicate the
+# default command to run on startup (config_fn calls this command after saving
+# stuff to settings.cfg)
 def config_fn(data, strip):
-    pass
+    d = {}
+    d["numleds"] = (ord(data[0]) << 8) + ord(data[1])
+    init_cmd = data[2:]
+
+    fout = open("settings.cfg", 'wb')
+    fout.write(json.dumps(d) + "\n")
+    fout.write(init_cmd)
+    fout.close()
+
 
 # Dictionary mapping command codes to their corresponding functions
 commands = {
@@ -232,12 +247,42 @@ commands = {
         EMBER : ember_fn,
         CONFIG : config_fn
         }
+strip = None
 
 ### Main loop here
-# TODO: Read config file
 
-strip = neopixel.Adafruit_NeoPixel(92, 18, 800000, 5, False)
-strip.begin()
+try:
+    # The first line in settings.cfg is a json encoded dictionary that contains
+    # arbitrary variables to set. The rest of the file is raw binary that
+    # represents the default command to use on startup
+    config = open("settings.cfg", 'rb')
+    settings = json.loads(config.readline())
+    init_cmd = config.read()
+
+    NUM_LEDS = settings["numleds"]
+
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+    strip.begin()
+
+    cmd = init_cmd[0]
+    n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
+    data = init_cmd[3:]
+
+    if (not len(data) == n):
+        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
+
+    commands[cmd](data, strip)    
+    
+except IOError as err:
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+    strip.begin()
+except Exception as err:
+    print (err)
+    pdb.set_trace()
+
+    if strip == None:
+        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+        strip.begin()
 
 print("Started strip")
 
@@ -266,11 +311,12 @@ try:
             try:
                 #TODO: Handle timeout exceptions
                 # Get the size of the data
-                n = u.read(1)
-                data = u.read(ord(n))
+                m = u.read(2)
+                n = (ord(m[0]) << 8) + ord(m[1])
+                data = u.read(n)
     
-                if (not len(data) == ord(n)):
-                    raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (ord(n), len(data)))
+                if (not len(data) == n):
+                    raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
     
                 # Command received, use to code to call the corresponding fn, which will
                 # hanndle the rest of the serial communication and edit the strip
