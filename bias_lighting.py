@@ -6,7 +6,6 @@ import serial
 import neopixel
 import threading
 from array import array
-from time import sleep
 import numpy as np
 import time
 import json
@@ -25,7 +24,6 @@ NUM_LEDS = 10
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
 def setPixel(i, c, s):
-    print("i=%s c=%s s=%s" % (str(i), str(c), str(s)))
     c = neopixel.Color(ord(c[0])/BRIGHT_DIV, ord(c[1])/BRIGHT_DIV, ord(c[2])/BRIGHT_DIV)
     #print("Setting pixel %d to %d" % (i, c))
     s.setPixelColor(i, c)
@@ -65,17 +63,43 @@ class Animator(threading.Thread):
         self.strip = strip
         self.persist_data = persist_data
         self.fn_args = args
+        self.threadWait = threading.Event()     # This event is used to tell the thread to pause
+        self.threadWait.set()
+        self.threadPaused = threading.Event()   # This event is used by the thread to indicate it is paused
+        self.threadPaused.clear()
 
     def run(self):
-        while not self.kill:
-            t = time.time()
-            self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
-            print "Time to animate: %f" % (time.time() - t)
-            sleep(self.interval)
+        while not (self.kill):
+            if self.threadWait.is_set():    # Continue until signaled to stop
+                t = time.time()
+                self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
+                print "Time to animate: %f" % (time.time() - t)
+                time.sleep(self.interval)
+            else:                           # When signaled to pause, 
+                self.threadPaused.set()     # indicate that it is actually paused,
+                self.threadWait.wait()      # wait for the signal to resume,
+                self.threadPaused.clear()   # and then indicate it is no longer paused
 
     def stop(self):
         self.kill = True
         self.join()
+
+    def pause(self):
+        self.threadWait.clear()     # Set this event to signal the thread to block
+        self.threadPaused.wait()    # Wait on the thread to actually stop        
+
+    def resume(self):
+        self.threadWait.set()       # Allow the thread to proceed
+
+    def change_ani(self, interval=0.04, target=do_nothing, persist_data=None, *args):
+        self.pause()    # Blocks until animation is paused
+
+        self.interval = interval
+        self.target = target
+        self.persist_data = persist_data
+        self.fn_args = args
+
+        self.resume()   # Resume the animation
 
 
 # Lights a single pixel that moves down the strip.
@@ -140,6 +164,8 @@ def ember_ani(strip, states, c):
 # SOLID function. Sets pixels to solid static color. data is a byte array of the
 # required RGB values. It's length should be a multiple of 3
 def solid_fn(data, strip):
+    global t    # This is the animator object. This function will pause it
+
     if (not len(data) % 3 == 0):
         raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
@@ -156,6 +182,7 @@ def solid_fn(data, strip):
     for i, p in enumerate(pixels):
         setPixel(i, p, strip)
 
+    t.pause()
     strip.show()
 
 def mimic_fn(data, strip):
@@ -181,6 +208,8 @@ def music_fn(data, strip):
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
 def ember_fn(data, strip):
+    global t
+
     if (not len(data) % 7 == 0):
         raise Exception("ember_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
@@ -213,8 +242,10 @@ def ember_fn(data, strip):
     # Will be a random number in range [-1,1)
     states = np.random.ranf(m) * 2 - 1
 
-    t = Animator(0.02, ember_ani, strip, states, pixels)
-    t.start()
+    # BUG: This is why ember flickers, because t isn't global and so many t's are
+    # declared in the background that all compete for pixels. This is also why the
+    # t.stop() command doesn't work after a command is sent
+    t.change_ani(0.02, ember_ani, states, pixels)
 
 
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
@@ -226,9 +257,11 @@ def twinkle_fn(data, strip):
 
 # CONFIG fn. It is followed by 2 bytes which determine the number of LEDs on the
 # strip. It is then followed by an arbitrary number of bytes the indicate the
-# default command to run on startup (config_fn calls this command after saving
-# stuff to settings.cfg)
+# default command to run on startup. This doesn't affect the LEDs until the
+# program restarts
 def config_fn(data, strip):
+    global t
+
     d = {}
     d["numleds"] = (ord(data[0]) << 8) + ord(data[1])
     init_cmd = data[2:]
@@ -249,7 +282,13 @@ commands = {
         }
 strip = None
 
+
 ### Main loop here
+
+# t is global timer object, it'll get redefined and restarted by any command
+# fn that requires continued animation after returning
+t = Animator(5.0, do_nothing, strip, 0)
+t.start()
 
 try:
     # The first line in settings.cfg is a json encoded dictionary that contains
@@ -263,6 +302,7 @@ try:
 
     strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
     strip.begin()
+    t.strip = strip
 
     cmd = init_cmd[0]
     n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
@@ -273,16 +313,14 @@ try:
 
     commands[cmd](data, strip)    
     
-except IOError as err:
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
-    strip.begin()
 except Exception as err:
-    print (err)
     pdb.set_trace()
 
     if strip == None:
         strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
         strip.begin()
+    else:
+        print (err)
 
 print("Started strip")
 
@@ -293,21 +331,13 @@ if not u.is_open:
 
 print("Opened port")
 
-t = Animator(0.5, do_nothing, strip, 0)
-                                # t is global timer object, it'll get redefined
-                                # and restarted by any command fn that requires
-                                # continued animation after returning
-t.start()
 
 try:
     while True:
         cmd = u.read(1)
         if cmd != b'':
-            print("Got %s" % cmd)
+            print("Got %s" % str(cmd))
             
-            # Stop any animations
-            t.stop()
-           
             try:
                 #TODO: Handle timeout exceptions
                 # Get the size of the data
