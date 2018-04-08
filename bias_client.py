@@ -25,19 +25,20 @@ class Client(QtWidgets.QWidget):
         super().__init__()
         self.cmd_str = b''      # This will change size depending on which tab is selected
         self.cmd = 0            # This is the command byte prepended to the cmd_str. Changes based on selected tab
-	
-	#Open serial device (the number changes if the device is unplugged)
-	self.com = None
-	for i in range(10):
-		dev = '/dev/ttyUSB' + str(i)
-        	if os.path.exists(dev):
-			self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
-			break
-	if self.com == None:
-		print("Couldn't open serial port")
-		exit()
-		# TOOO: Prompt the user to offer a path
 
+        #Open serial device (the number changes if the device is unplugged)
+       	self.com = None
+       	for i in range(10):
+       	    dev = '/dev/ttyUSB' + str(i)
+            if os.path.exists(dev):
+       	        self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
+                print("Openned port")
+       	        break
+        if self.com == None:
+       	    print("Couldn't open serial port")
+            exit()
+            # TOOO: Prompt the user to offer a path
+       
         self.ui = Ui_Form()
         self.ui.setupUi(self)
         self.show()
@@ -128,7 +129,7 @@ class Client(QtWidgets.QWidget):
         # Save the number of frames
         self.cmd_str = b''.join([self.cmd_str[:6], struct.pack('>B', frames)])
 
-
+print("Starting app")
 app = QtWidgets.QApplication(sys.argv)
 window = Client()
 sys.exit(app.exec_())

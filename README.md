@@ -59,3 +59,12 @@ To assemble the ui file, run
 
 This'll convert the XML to runnable python code. (You still need to write a QWidget object that
 implements the correct sockets).
+
+Troubleshooting:
+
+If the LEDs are flickering, you need to blacklist the audio module, as
+mentioned in the neopixel README. Add
+
+    blacklist snd_bcm2835
+
+to /etc/modprobe.d/snd-blacklist.conf
