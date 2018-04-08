@@ -7,6 +7,7 @@ import numpy as np
 import time
 import json
 import struct
+from binascii import hexlify
 import pdb
 
 SOLID = b'\x00'
@@ -18,11 +19,13 @@ MIMIC = b'\x04'
 # These are the default constants unless overridden by the config file.
 BRIGHT_DIV = 4  #Any brightness received is divided by this number to save power
 NUM_LEDS = 10
+NEOPIXEL_PIN = 18
+NEOPIXEL_HZ = 800000
 
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
 def setPixel(i, c, s):
-    c = neopixel.Color(ord(c[0])/BRIGHT_DIV, ord(c[1])/BRIGHT_DIV, ord(c[2])/BRIGHT_DIV)
+    c = neopixel.Color(c[0]/BRIGHT_DIV, c[1]/BRIGHT_DIV, c[2]/BRIGHT_DIV)
     #print("Setting pixel %d to %d" % (i, c))
     s.setPixelColor(i, c)
 
@@ -70,8 +73,9 @@ class Animator(threading.Thread):
         while not (self.kill):
             if self.threadWait.is_set():    # Continue until signaled to stop
                 t = time.time()
+                # TODO: Try catch here, so if the animation crashes, threadPaused is set. (Otherwise config_fn hangs)
                 self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
-                print "Time to animate: %f" % (time.time() - t)
+                #print "Time to animate: %f" % (time.time() - t)
                 time.sleep(self.interval)
             else:                           # When signaled to pause, 
                 self.threadPaused.set()     # indicate that it is actually paused,
@@ -114,6 +118,7 @@ def pong_ani(strip, persist_data, color):
 # returns a. All other return values lie on the line formed by the points (c, b)
 # and (c, a)
 def lineate(a, b, c):
+    # TODO: This is apparently buggy when. Something about overflow?
     return int(b + (a - b) * abs(c))
 
 # Extract individual 8bit colors from 24bit rgb value
@@ -132,7 +137,7 @@ def blue(c):
 # to transition between one color to another and back
 def ember_ani(strip, states, c):
     #print "states: " + str(states)
-    #print "c: " + str(c)
+    #print "c: " + str(c[0])
     new_states = states
     for n, s in enumerate(states):
         # Calculate new state
@@ -159,9 +164,11 @@ def ember_ani(strip, states, c):
 ### Command functions. These are called immediately after receiving a command
 ### from the COM
 
-# SOLID function. Sets pixels to solid static color. data is a byte array of the
-# required RGB values. It's length should be a multiple of 3
+# SOLID function. Sets pixels to solid static color. data is a numpy int8 array of
+# the required RGB values. It's length should be a multiple of 3
 def solid_fn(data, strip):
+    print("Solid: %s" % hexlify(data))
+
     global t    # This is the animator object. This function will pause it
 
     if (not len(data) % 3 == 0):
@@ -170,11 +177,11 @@ def solid_fn(data, strip):
     # Separate data into groups of 3 byte strings, and put each of those strings
     # into a numpy array. Copy and paste that data over and over again until the
     # array length matches the number of pixels
-    pixels = np.empty(len(data)/3, dtype='|S3')
+    pixels = np.empty((len(data)/3, 3), dtype=np.uint8)
     for i, p in enumerate(group(data, 3)): pixels[i] = p
     m = strip.numPixels()
     n = len(pixels)
-    pixels = np.array(np.append(np.tile(pixels, m / n), pixels[:(m % n)]))
+    pixels = np.reshape(np.append(np.tile(pixels, m / n), pixels[:(m % n)]), (-1,3))
 
     # Set each pixel color
     for i, p in enumerate(pixels):
@@ -206,6 +213,8 @@ def music_fn(data, strip):
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
 def ember_fn(data, strip):
+    print("Ember: %s" % hexlify(data))
+
     global t
 
     if (not len(data) % 7 == 0):
@@ -214,20 +223,22 @@ def ember_fn(data, strip):
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
-    pixels = np.empty((len(data)/7, 7), dtype=np.int8)
-    for i, p in enumerate(group(data, 7)):
-        # Start color
-        pixels[i][0] = ord(p[0])/BRIGHT_DIV
-        pixels[i][1] = ord(p[1])/BRIGHT_DIV
-        pixels[i][2] = ord(p[2])/BRIGHT_DIV
-
-        # End color
-        pixels[i][3] = ord(p[3])/BRIGHT_DIV
-        pixels[i][4] = ord(p[4])/BRIGHT_DIV
-        pixels[i][5] = ord(p[5])/BRIGHT_DIV
-
-        # Transition speed
-        pixels[i][6] = ord(p[6])
+    # TODO: Now that data is a np array, possibly replace the for loop with "pixels = np.reshape(data, (-1,7))"
+    pixels = np.reshape(data, (-1,7))
+#    pixels = np.empty((len(data)/7, 7), dtype=np.uint8)
+#    for i, p in enumerate(group(data, 7)):
+#        # Start color
+#        pixels[i][0] = p[0]/BRIGHT_DIV
+#        pixels[i][1] = p[1]/BRIGHT_DIV
+#        pixels[i][2] = p[2]/BRIGHT_DIV
+#
+#        # End color
+#        pixels[i][3] = p[3]/BRIGHT_DIV
+#        pixels[i][4] = p[4]/BRIGHT_DIV
+#        pixels[i][5] = p[5]/BRIGHT_DIV
+#
+#        # Transition speed
+#        pixels[i][6] = p[6]
 
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
@@ -243,7 +254,8 @@ def ember_fn(data, strip):
     # BUG: This is why ember flickers, because t isn't global and so many t's are
     # declared in the background that all compete for pixels. This is also why the
     # t.stop() command doesn't work after a command is sent
-    t.change_ani(0.02, ember_ani, states, pixels)
+    ember_ani(t.strip, states, pixels)
+    t.change_ani(0.1, ember_ani, states, pixels)
 
 
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
@@ -258,16 +270,19 @@ def twinkle_fn(data, strip):
 # default command to run on startup. This doesn't affect the LEDs until the
 # program restarts
 def config_fn(data, strip):
+    print("Config: %s" % hexlify(data))
+
     global t
 
     d = {}
-    d["numleds"] = (ord(data[0]) << 8) + ord(data[1])
+    d["numleds"] = (data[0] << 8) + data[1]
     init_cmd = data[2:]
 
     fout = open("settings.cfg", 'wb')
     fout.write(json.dumps(d) + "\n")
     fout.write(init_cmd)
     fout.close()
+    # TODO: Redefine strip to use new number of LEDs, and hotswap the animation
 
 
 # Dictionary mapping command codes to their corresponding functions
@@ -285,9 +300,10 @@ strip = None
 
 # t is global timer object, it'll get redefined and restarted by any command
 # fn that requires continued animation after returning
-t = Animator(5.0, do_nothing, strip, 0)
+t = Animator(0.5, do_nothing, strip, 0)
 t.start()
 
+# TODO: Restructure this a an if exists(setting.cfg) load setting, else load defaults
 try:
     # The first line in settings.cfg is a json encoded dictionary that contains
     # arbitrary variables to set. The rest of the file is raw binary that
@@ -298,14 +314,14 @@ try:
 
     NUM_LEDS = settings["numleds"]
 
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
     strip.begin()
     t.strip = strip
 
     # TODO: Use struct unpacking here so constants can be ints. (init_cmd[0] will return a byte because python2)
     cmd = init_cmd[0]
     n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
-    data = init_cmd[3:]
+    data = np.frombuffer(init_cmd[3:], dtype=np.uint8)
 
     if (not len(data) == n):
         raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
@@ -313,11 +329,10 @@ try:
     commands[cmd](data, strip)    
     
 except Exception as err:
-    pdb.set_trace()
-
     if strip == None:
-        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
         strip.begin()
+        t.strip = strip
     else:
         print (err)
 
@@ -335,15 +350,17 @@ try:
     while True:
         cmd = u.read(1)
         if cmd != b'':
-            print("Got %s" % str(cmd))
+            print("Got %s" % hexlify(cmd))
             
             try:
                 #TODO: Handle timeout exceptions
                 # Get the size of the data
                 m = u.read(2)
                 n = (ord(m[0]) << 8) + ord(m[1])
-                data = u.read(n)
-    
+                data = np.frombuffer(u.read(n), dtype=np.uint8)
+
+                print("Cmd: %s, len=%d, data=%s" % (hexlify(cmd), n, hexlify(data)))
+
                 if (not len(data) == n):
                     raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
     

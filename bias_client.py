@@ -9,6 +9,8 @@
 import sys
 import serial
 import struct
+import os.path
+from binascii import hexlify
 from client_ui import QtWidgets
 from client_ui import QtCore
 from client_ui import QtGui
@@ -23,8 +25,20 @@ class Client(QtWidgets.QWidget):
         super().__init__()
         self.cmd_str = b''      # This will change size depending on which tab is selected
         self.cmd = 0            # This is the command byte prepended to the cmd_str. Changes based on selected tab
-        #self.com = serial.Serial('/dev/ttyUSB0', baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
 
+        #Open serial device (the number changes if the device is unplugged)
+       	self.com = None
+       	for i in range(10):
+       	    dev = '/dev/ttyUSB' + str(i)
+            if os.path.exists(dev):
+       	        self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
+                print("Openned port")
+       	        break
+        if self.com == None:
+       	    print("Couldn't open serial port")
+            exit()
+            # TOOO: Prompt the user to offer a path
+       
         self.ui = Ui_Form()
         self.ui.setupUi(self)
         self.show()
@@ -38,8 +52,8 @@ class Client(QtWidgets.QWidget):
         sout = b''.join([struct.pack('>B', self.cmd), struct.pack('>H',len(self.cmd_str)), self.cmd_str])
 
         # Send command
-        #self.com.send(sout)
-        print("Sent: " + str(sout))
+        self.com.write(sout)
+        print("Sent: %s" % hexlify(sout))
 
         # If the "set as default" checkbox is checked, send a config command. The structure is as follows
         #   +----------------+---------------+---------------+----------------+----------------+-----....-----+
@@ -49,8 +63,8 @@ class Client(QtWidgets.QWidget):
             sout = b''.join([struct.pack('>B', constants.CMD_CONFIG), struct.pack('>H', len(sout) + 2),
                              struct.pack('>H', self.ui.sb_num_leds.value()), sout])
 
-            #self.com.send(sout)
-            print("Sent: " + str(sout))
+            self.com.write(sout)
+            print("Sent: %s" % hexlify(sout))
 
         pass
 
@@ -115,7 +129,7 @@ class Client(QtWidgets.QWidget):
         # Save the number of frames
         self.cmd_str = b''.join([self.cmd_str[:6], struct.pack('>B', frames)])
 
-
+print("Starting app")
 app = QtWidgets.QApplication(sys.argv)
 window = Client()
 sys.exit(app.exec_())
