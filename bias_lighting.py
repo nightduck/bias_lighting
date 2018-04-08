@@ -7,6 +7,7 @@ import numpy as np
 import time
 import json
 import struct
+from binascii import hexlify
 import pdb
 
 SOLID = b'\x00'
@@ -18,6 +19,8 @@ MIMIC = b'\x04'
 # These are the default constants unless overridden by the config file.
 BRIGHT_DIV = 4  #Any brightness received is divided by this number to save power
 NUM_LEDS = 10
+NEOPIXEL_PIN = 18
+NEOPIXEL_HZ = 800000
 
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
@@ -71,7 +74,7 @@ class Animator(threading.Thread):
             if self.threadWait.is_set():    # Continue until signaled to stop
                 t = time.time()
                 self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
-                print "Time to animate: %f" % (time.time() - t)
+                #print "Time to animate: %f" % (time.time() - t)
                 time.sleep(self.interval)
             else:                           # When signaled to pause, 
                 self.threadPaused.set()     # indicate that it is actually paused,
@@ -131,8 +134,6 @@ def blue(c):
 # The next 3 are the rgb's of the end color. The last byte is the number of frames
 # to transition between one color to another and back
 def ember_ani(strip, states, c):
-    print("Ember: " + str(data))
-
     #print "states: " + str(states)
     #print "c: " + str(c)
     new_states = states
@@ -164,7 +165,7 @@ def ember_ani(strip, states, c):
 # SOLID function. Sets pixels to solid static color. data is a byte array of the
 # required RGB values. It's length should be a multiple of 3
 def solid_fn(data, strip):
-    print("Solid: " + str(data))
+    print("Solid: %s" % hexlify(data))
 
     global t    # This is the animator object. This function will pause it
 
@@ -210,6 +211,8 @@ def music_fn(data, strip):
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
 def ember_fn(data, strip):
+    print("Ember: %s" % hexlify(data))
+
     global t
 
     if (not len(data) % 7 == 0):
@@ -247,7 +250,7 @@ def ember_fn(data, strip):
     # BUG: This is why ember flickers, because t isn't global and so many t's are
     # declared in the background that all compete for pixels. This is also why the
     # t.stop() command doesn't work after a command is sent
-    t.change_ani(0.02, ember_ani, states, pixels)
+    t.change_ani(0.1, ember_ani, states, pixels)
 
 
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
@@ -262,7 +265,7 @@ def twinkle_fn(data, strip):
 # default command to run on startup. This doesn't affect the LEDs until the
 # program restarts
 def config_fn(data, strip):
-    print("Config: " + str(data))
+    print("Config: %s" % hexlify(data))
 
     global t
 
@@ -291,7 +294,7 @@ strip = None
 
 # t is global timer object, it'll get redefined and restarted by any command
 # fn that requires continued animation after returning
-t = Animator(5.0, do_nothing, strip, 0)
+t = Animator(0.5, do_nothing, strip, 0)
 t.start()
 
 try:
@@ -304,7 +307,7 @@ try:
 
     NUM_LEDS = settings["numleds"]
 
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
     strip.begin()
     t.strip = strip
 
@@ -322,7 +325,7 @@ except Exception as err:
     pdb.set_trace()
 
     if strip == None:
-        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, 18, 800000, 5, False)
+        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
         strip.begin()
     else:
         print (err)
@@ -341,7 +344,7 @@ try:
     while True:
         cmd = u.read(1)
         if cmd != b'':
-            print("Got %s" % str(cmd))
+            print("Got %s" % hexlify(cmd))
             
             try:
                 #TODO: Handle timeout exceptions
@@ -350,7 +353,7 @@ try:
                 n = (ord(m[0]) << 8) + ord(m[1])
                 data = u.read(n)
 
-                print("Cmd: %d, len=%d, data=%s"%(cmd, m, data))
+                print("Cmd: %s, len=%d, data=%s" % (hexlify(cmd), n, hexlify(data)))
 
                 if (not len(data) == n):
                     raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))

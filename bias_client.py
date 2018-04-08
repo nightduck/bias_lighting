@@ -10,6 +10,7 @@ import sys
 import serial
 import struct
 import os.path
+from binascii import hexlify
 from client_ui import QtWidgets
 from client_ui import QtCore
 from client_ui import QtGui
@@ -52,7 +53,7 @@ class Client(QtWidgets.QWidget):
 
         # Send command
         self.com.write(sout)
-        print("Sent: " + str(sout))
+        print("Sent: %s" % hexlify(sout))
 
         # If the "set as default" checkbox is checked, send a config command. The structure is as follows
         #   +----------------+---------------+---------------+----------------+----------------+-----....-----+
@@ -63,7 +64,7 @@ class Client(QtWidgets.QWidget):
                              struct.pack('>H', self.ui.sb_num_leds.value()), sout])
 
             self.com.write(sout)
-            print("Sent: " + str(sout))
+            print("Sent: %s" % hexlify(sout))
 
         pass
 
