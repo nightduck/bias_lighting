@@ -1,7 +1,4 @@
-#from sklearn.cluster import KMeans
-#import numpy as np
-#import mss
-#from PIL import Image
+#!/usr/bin/env python2
 import serial
 import neopixel
 import threading
@@ -9,6 +6,7 @@ from array import array
 import numpy as np
 import time
 import json
+import struct
 import pdb
 
 SOLID = b'\x00'
@@ -304,6 +302,7 @@ try:
     strip.begin()
     t.strip = strip
 
+    # TODO: Use struct unpacking here so constants can be ints. (init_cmd[0] will return a byte because python2)
     cmd = init_cmd[0]
     n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
     data = init_cmd[3:]

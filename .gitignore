@@ -1,2 +1,3 @@
 *.cfg
 neopixel_test.py
+venv/

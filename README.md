@@ -50,3 +50,12 @@ check should be done to see if the automation thread should be shutdown
 * Do some syncronization with corsair keyboards, depending on how easy that is
 
 * Config file: Do json
+
+Build notes:
+
+To assemble the ui file, run
+
+    pyuic5 -o client_ui.py client.ui
+
+This'll convert the XML to runnable python code. (You still need to write a QWidget object that
+implements the correct sockets).
