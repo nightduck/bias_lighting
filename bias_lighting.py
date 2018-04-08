@@ -131,6 +131,8 @@ def blue(c):
 # The next 3 are the rgb's of the end color. The last byte is the number of frames
 # to transition between one color to another and back
 def ember_ani(strip, states, c):
+    print("Ember: " + str(data))
+
     #print "states: " + str(states)
     #print "c: " + str(c)
     new_states = states
@@ -162,6 +164,8 @@ def ember_ani(strip, states, c):
 # SOLID function. Sets pixels to solid static color. data is a byte array of the
 # required RGB values. It's length should be a multiple of 3
 def solid_fn(data, strip):
+    print("Solid: " + str(data))
+
     global t    # This is the animator object. This function will pause it
 
     if (not len(data) % 3 == 0):
@@ -258,6 +262,8 @@ def twinkle_fn(data, strip):
 # default command to run on startup. This doesn't affect the LEDs until the
 # program restarts
 def config_fn(data, strip):
+    print("Config: " + str(data))
+
     global t
 
     d = {}
@@ -343,7 +349,9 @@ try:
                 m = u.read(2)
                 n = (ord(m[0]) << 8) + ord(m[1])
                 data = u.read(n)
-    
+
+                print("Cmd: %d, len=%d, data=%s"%(cmd, m, data))
+
                 if (not len(data) == n):
                     raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
     
