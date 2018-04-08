@@ -68,3 +68,6 @@ mentioned in the neopixel README. Add
     blacklist snd_bcm2835
 
 to /etc/modprobe.d/snd-blacklist.conf
+
+
+Alternatively, your Pi may not be receiving enough power. Try powering it with a different USB port
