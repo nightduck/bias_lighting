@@ -17,7 +17,7 @@ EMBER = b'\x03'
 MIMIC = b'\x04'
 
 # These are the default constants unless overridden by the config file.
-BRIGHT_DIV = 4  #Any brightness received is divided by this number to save power
+BRIGHT_DIV = 4  # Any brightness received is divided by this number to save power
 NUM_LEDS = 10
 NEOPIXEL_PIN = 18
 NEOPIXEL_HZ = 800000
@@ -46,10 +46,10 @@ def group(iterable, n):
 ######################################################################################
 
 
-### Automation functions. These are called repeatedly after a command is called to handle
-### pi-driven animations. Functions should take at least 2 arguments, first being the strip
-### object, and the second being a piece of peristant data (type is whatever you
-### it to be. This can be ignored if your fn calls are independent
+# Automation functions. These are called repeatedly after a command is called to handle
+# pi-driven animations. Functions should take at least 2 arguments, first being the strip
+# object, and the second being a piece of persistent data (type is whatever you
+# it to be. This can be ignored if your fn calls are independent
 
 # Thread that handles animations. Pass the interval between fn calls, the
 # function it should execute as target, and any extra arguments will be passed
@@ -70,11 +70,15 @@ class Animator(threading.Thread):
         self.threadPaused.clear()
 
     def run(self):
-        while not (self.kill):
+        while not self.kill:
             if self.threadWait.is_set():    # Continue until signaled to stop
                 t = time.time()
                 # TODO: Try catch here, so if the animation crashes, threadPaused is set. (Otherwise config_fn hangs)
-                self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
+                try:
+                    self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
+                except Exception as err:
+                    self.threadPaused.set()
+                    raise
                 #print "Time to animate: %f" % (time.time() - t)
                 time.sleep(self.interval)
             else:                           # When signaled to pause, 
@@ -161,8 +165,8 @@ def ember_ani(strip, states, c):
 #############################################################################
 
 
-### Command functions. These are called immediately after receiving a command
-### from the COM
+# Command functions. These are called immediately after receiving a command
+# from the COM
 
 # SOLID function. Sets pixels to solid static color. data is a numpy int8 array of
 # the required RGB values. It's length should be a multiple of 3
@@ -202,12 +206,12 @@ def music_fn(data, strip):
 #
 # Data is sent with 7 bytes corresponding to a single pixel. The first byte sent
 # is the number of pixels. If this number is less than the total number of
-# pixels, the data received will be copied to the remaing pixels. This allows
+# pixels, the data received will be copied to the remaining pixels. This allows
 # to define an entire strip to behave the same way by sending only 8 total bytes
 #
 # The 7 bytes are [ red1, green1, blue1, red2, green2, blue2, speed ]
 # where speed is the number of frames to transition from rgb1 to rgb2 and back
-# Each pixel is initialized to a value between rgb1 and rgb2. Persitent data is
+# Each pixel is initialized to a value between rgb1 and rgb2. Persistent data is
 # a float between -1 and 1. Where the magnitude determines which direction the
 # color is transitioning, (negative towards rgb1 and positive towards rgb2), and
 # the magnitude shows the total progress (0 and 1 being the start and end points
@@ -224,21 +228,7 @@ def ember_fn(data, strip):
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
     # TODO: Now that data is a np array, possibly replace the for loop with "pixels = np.reshape(data, (-1,7))"
-    pixels = np.reshape(data, (-1,7))
-#    pixels = np.empty((len(data)/7, 7), dtype=np.uint8)
-#    for i, p in enumerate(group(data, 7)):
-#        # Start color
-#        pixels[i][0] = p[0]/BRIGHT_DIV
-#        pixels[i][1] = p[1]/BRIGHT_DIV
-#        pixels[i][2] = p[2]/BRIGHT_DIV
-#
-#        # End color
-#        pixels[i][3] = p[3]/BRIGHT_DIV
-#        pixels[i][4] = p[4]/BRIGHT_DIV
-#        pixels[i][5] = p[5]/BRIGHT_DIV
-#
-#        # Transition speed
-#        pixels[i][6] = p[6]
+    pixels = np.reshape(data, (-1, 7))
 
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
@@ -296,7 +286,7 @@ commands = {
 strip = None
 
 
-### Main loop here
+# Main loop here
 
 # t is global timer object, it'll get redefined and restarted by any command
 # fn that requires continued animation after returning
@@ -323,13 +313,13 @@ try:
     n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
     data = np.frombuffer(init_cmd[3:], dtype=np.uint8)
 
-    if (not len(data) == n):
+    if len(data) != n:
         raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
 
     commands[cmd](data, strip)    
     
 except Exception as err:
-    if strip == None:
+    if not strip:
         strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
         strip.begin()
         t.strip = strip
@@ -353,7 +343,7 @@ try:
             print("Got %s" % hexlify(cmd))
             
             try:
-                #TODO: Handle timeout exceptions
+                # TODO: Handle timeout exceptions
                 # Get the size of the data
                 m = u.read(2)
                 n = (ord(m[0]) << 8) + ord(m[1])
@@ -375,3 +365,8 @@ except KeyboardInterrupt:
     t.stop()
     u.close()
     blackout(strip)
+except Exception as Err:
+    t.stop()
+    u.close()
+    blackout(strip)
+    raise
