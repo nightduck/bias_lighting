@@ -26,18 +26,18 @@ class Client(QtWidgets.QWidget):
         self.cmd_str = b''      # This will change size depending on which tab is selected
         self.cmd = 0            # This is the command byte prepended to the cmd_str. Changes based on selected tab
 
-        #Open serial device (the number changes if the device is unplugged)
-       	self.com = None
-       	for i in range(10):
-       	    dev = '/dev/ttyUSB' + str(i)
+        # Open serial device (the number changes if the device is unplugged)
+        self.com = None
+        for i in range(10):
+            dev = '/dev/ttyUSB' + str(i)
             if os.path.exists(dev):
-       	        self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
-                print("Openned port")
-       	        break
-        if self.com == None:
-       	    print("Couldn't open serial port")
+                self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
+                print("Opened port")
+                break
+        if not self.com:
+            print("Couldn't open serial port")
             exit()
-            # TOOO: Prompt the user to offer a path
+            # TODO: Prompt the user to offer a path
        
         self.ui = Ui_Form()
         self.ui.setupUi(self)
@@ -66,16 +66,25 @@ class Client(QtWidgets.QWidget):
             self.com.write(sout)
             print("Sent: %s" % hexlify(sout))
 
-        pass
-
+    # Argument passed in is the tab number selected
     def select_ani(self, ani):
-        # Argument passed in is the tab number selected
         if ani == constants.TAB_SOLID:
+            # Update self.cmd to the new command
             self.cmd = constants.CMD_SOLID
-            self.cmd_str = bytearray(3)
+
+            # Update cmd_str using the color of the buttons (which are persistent after switching tabs)
+            self.cmd_str = struct.pack('>I', self.ui.btn_solid_color.property("color").rgb())[1:]
+
         elif ani == constants.TAB_EMBER:
             self.cmd = constants.CMD_EMBER
-            self.cmd_str = bytearray(7)
+
+            # Update cmd_str using the color of the buttons and the value of the spinbox
+            start_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
+            end_color  = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
+            frames = struct.pack('>B', self.ui.sb_ember_frames.value())
+            self.cmd_str = b''.join([start_color, end_color, frames])
+
+    ############################################################################
 
     # Function for solid "animation". command string structure is simple, just 3 bytes for RGB.
     # This will be used as the variable sout (see above)
@@ -88,9 +97,12 @@ class Client(QtWidgets.QWidget):
 
         # Set the background color for the button
         self.ui.btn_solid_color.setStyleSheet("background-color:" + color.name() + ";")
+        self.ui.btn_solid_color.setProperty("color", color)
 
         # Convert the color to a 3 byte array (ignoring alpha channel) and save that into the command string
         self.cmd_str = struct.pack('>I', color.rgb())[1:]
+
+    ############################################################################
 
     # Functions for ember animation. command string structure is 3 bytes for
     # start color, 3 bytes for end color, and 1 byte for the number of frames
@@ -105,6 +117,7 @@ class Client(QtWidgets.QWidget):
 
         # Set the background color for the button
         self.ui.btn_ember_start_color.setStyleSheet("background-color:" + color.name() + ";")
+        self.ui.btn_ember_start_color.setProperty("color", color)
 
         # and make a 3 byte array for the RGB value (ignore the alpha channel)
         color = struct.pack('>I', color.rgb())[1:]
@@ -118,6 +131,7 @@ class Client(QtWidgets.QWidget):
 
         # Set the background color for the button
         self.ui.btn_ember_end_color.setStyleSheet("background-color:" + color.name() + ";")
+        self.ui.btn_ember_end_color.setProperty("color", color)
 
         # Convert the color to a 3 byte array for the RGB value (ignore the alpha channel)
         color = struct.pack('>I', color.rgb())[1:]
@@ -128,6 +142,7 @@ class Client(QtWidgets.QWidget):
     def ember_set_frames(self, frames):
         # Save the number of frames
         self.cmd_str = b''.join([self.cmd_str[:6], struct.pack('>B', frames)])
+
 
 print("Starting app")
 app = QtWidgets.QApplication(sys.argv)
