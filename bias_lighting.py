@@ -304,6 +304,9 @@ try:
     config = open("settings.cfg", 'rb')
     settings = json.loads(config.readline())
     init_cmd = config.read()
+    config.close()
+
+    print "Read config file"
 
     NUM_LEDS = settings["numleds"]
 
