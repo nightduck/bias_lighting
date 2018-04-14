@@ -89,6 +89,7 @@ class Animator(threading.Thread):
 
     def stop(self):
         self.kill = True
+        self.threadWait.set()  # If event is paused, it'll never join, so unpause it
         self.join()
 
     def pause(self):
