@@ -16,9 +16,10 @@ from client_ui import QtCore
 from client_ui import QtGui
 from client_ui import Ui_Form
 import constants
+import traceback
 
 # TODO: Put constants in module, so they're synchronized between client and server
-
+# TODO: Put serial comm specifications up here
 
 class Client(QtWidgets.QWidget):
     def __init__(self):
@@ -31,13 +32,34 @@ class Client(QtWidgets.QWidget):
         for i in range(10):
             dev = '/dev/ttyUSB' + str(i)
             if os.path.exists(dev):
-                self.com = serial.Serial(dev, baudrate=115200, timeout=1)    # TODO: File checking if device doesn't exist
+                self.com = serial.Serial(dev, baudrate=115200, timeout=1)
                 print("Opened port")
                 break
-        if not self.com:
-            print("Couldn't open serial port")
-            exit()
-            # TODO: Prompt the user to offer a path
+
+        # If the serial device couldn't be opened we will prompt the user
+        # to manually specify one using this string
+        err_msg = "Can't autodetect serial device"
+        while not self.com:
+            in_frm = QtWidgets.QInputDialog()
+            dev, ok_pressed = in_frm.getText(self, err_msg, "Please specify a serial device (eg /dev/serial):",
+                                             QtWidgets.QLineEdit.Normal, "")
+
+            # If the user hits ok, then attempt to open the specified file
+            if ok_pressed:
+                if not os.path.exists(dev):
+                    err_msg = "No such device"
+                    continue
+
+                try:
+                    self.com = serial.Serial(dev, baudrate=115200, timeout=1)
+                except serial.serialutil.SerialException:
+                    print(traceback.print_exc())
+                    err_msg = "Invalid serial device"
+                    continue
+                print("Opened port")
+            elif not ok_pressed:
+                print("Couldn't open serial port")
+                exit()
        
         self.ui = Ui_Form()
         self.ui.setupUi(self)
