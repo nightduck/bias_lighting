@@ -10,6 +10,8 @@ import struct
 from binascii import hexlify
 import pdb
 
+print "Finished imports"
+
 SOLID = b'\x00'
 CONFIG = b'\x01'
 MUSIC = b'\x02'
@@ -290,11 +292,15 @@ strip = None
 
 
 # Main loop here
+print "Finished function and constants processing"
+
 
 # t is global timer object, it'll get redefined and restarted by any command
 # fn that requires continued animation after returning
 t = Animator(0.5, do_nothing, strip, 0)
 t.start()
+
+print "Made animator object"
 
 # TODO: Restructure this a an if exists(setting.cfg) load setting, else load defaults
 try:
@@ -314,6 +320,8 @@ try:
     strip.begin()
     t.strip = strip
 
+    print "Started strip"
+
     # TODO: Use struct unpacking here so constants can be ints. (init_cmd[0] will return a byte because python2)
     cmd = init_cmd[0]
     n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
@@ -323,6 +331,7 @@ try:
         raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
 
     commands[cmd](data, strip)    
+    print "Ran init command"
     
 except Exception as err:
     if not strip:
@@ -332,7 +341,6 @@ except Exception as err:
     else:
         print (err)
 
-print("Started strip")
 
 u = serial.Serial('/dev/serial0', baudrate=115200, timeout=1)
 if not u.is_open:
