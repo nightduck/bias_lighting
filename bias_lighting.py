@@ -22,6 +22,8 @@ NUM_LEDS = 10
 NEOPIXEL_PIN = 18
 NEOPIXEL_HZ = 800000
 
+# This forms an array to apply BRIGHT_DIV in ember_fn
+EMBER_DIV = np.array((BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, 1), dtype=np.uint8)
 
 # Sets pixel i on strip s to color c, where color is a 3 byte binary string
 def setPixel(i, c, s):
@@ -73,10 +75,10 @@ class Animator(threading.Thread):
         while not self.kill:
             if self.threadWait.is_set():    # Continue until signaled to stop
                 t = time.time()
-                # TODO: Try catch here, so if the animation crashes, threadPaused is set. (Otherwise config_fn hangs)
                 try:
                     self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
                 except Exception as err:
+                    # If the animation crashes set threadPaused event so config_fn doesn't hang
                     self.threadPaused.set()
                     raise
                 #print "Time to animate: %f" % (time.time() - t)
@@ -227,8 +229,9 @@ def ember_fn(data, strip):
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
-    # TODO: pixels[:][:6] should be divided by BRIGHT_DIV
     pixels = np.reshape(data, (-1, 7))
+    pixels = pixels / np.tile(EMBER_DIV, (len(pixels), 1))  # Divide RGB values by BRIGHT_DIV
+    # TODO: Find out why using /= complains about "array is read-only"
 
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
