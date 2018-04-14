@@ -274,7 +274,21 @@ def config_fn(data, strip):
     fout.write(json.dumps(d) + "\n")
     fout.write(init_cmd)
     fout.close()
-    # TODO: Redefine strip to use new number of LEDs, and hotswap the animation
+
+    # Pause the animator and update the strip with the new number of LEDs.
+    t.pause()
+    t.strip = neopixel.Adafruit_NeoPixel(d["numleds"], NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
+    t.strip.setBrightness(MAX_BRIGHTNESS)
+
+    # Call the new default animation fn (which will resume the animator if it wishes)
+    cmd = init_cmd[0]
+    n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
+    data = np.frombuffer(init_cmd[3:], dtype=np.uint8)
+
+    if len(data) != n:
+        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
+
+    commands[cmd](data, strip)
 
 
 # Dictionary mapping command codes to their corresponding functions

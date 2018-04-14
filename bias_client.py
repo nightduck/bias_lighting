@@ -75,10 +75,6 @@ class Client(QtWidgets.QWidget):
         #
         sout = b''.join([struct.pack('>B', self.cmd), struct.pack('>H',len(self.cmd_str)), self.cmd_str])
 
-        # Send command
-        self.com.write(sout)
-        print("Sent: %s" % hexlify(sout))
-
         # If the "set as default" checkbox is checked, send a config command. The structure is as follows
         #   +----------------+---------------+---------------+----------------+----------------+-----....-----+
         #   |   config cmd   |     string length (2 bytes)   |     Number of LEDs (2 bytes)    | Copy of sout |
@@ -87,8 +83,9 @@ class Client(QtWidgets.QWidget):
             sout = b''.join([struct.pack('>B', constants.CMD_CONFIG), struct.pack('>H', len(sout) + 2),
                              struct.pack('>H', self.ui.sb_num_leds.value()), sout])
 
-            self.com.write(sout)
-            print("Sent: %s" % hexlify(sout))
+        # Send command
+        self.com.write(sout)
+        print("Sent: %s" % hexlify(sout))
 
     # Argument passed in is the tab number selected
     def select_ani(self, ani):
