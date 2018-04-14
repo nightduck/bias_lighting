@@ -122,8 +122,8 @@ def pong_ani(strip, persist_data, color):
 # returns a. All other return values lie on the line formed by the points (c, b)
 # and (c, a)
 def lineate(a, b, c):
-    # TODO: This is apparently buggy when. Something about overflow?
-    return int(b + (a - b) * abs(c))
+    # a-b should span -255 to 255, so convert a and b to 16bit signed ints
+    return np.uint8(b + (np.int16(a) - np.int16(b) * abs(c)))
 
 # Extract individual 8bit colors from 24bit rgb value
 def red(c):
@@ -227,7 +227,7 @@ def ember_fn(data, strip):
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
-    # TODO: Now that data is a np array, possibly replace the for loop with "pixels = np.reshape(data, (-1,7))"
+    # TODO: pixels[:][:6] should be divided by BRIGHT_DIV
     pixels = np.reshape(data, (-1, 7))
 
     # If the number of pixels given in data are less than strip.numPixels(),
