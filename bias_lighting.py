@@ -125,7 +125,7 @@ def pong_ani(strip, persist_data, color):
 # and (c, a)
 def lineate(a, b, c):
     # a-b should span -255 to 255, so convert a and b to 16bit signed ints
-    return np.uint8(b + (np.int16(a) - np.int16(b) * abs(c)))
+    return np.uint8(a + (np.int16(b) - np.int16(a)) * abs(c))
 
 # Extract individual 8bit colors from 24bit rgb value
 def red(c):

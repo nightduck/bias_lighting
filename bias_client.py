@@ -20,6 +20,8 @@ import traceback
 
 # TODO: Put constants in module, so they're synchronized between client and server
 # TODO: Put serial comm specifications up here
+# TODO: Have a basic config file for the client (to store specs about LED strip, like number and RGBvGRB)
+#       and if the file doesn't exist, do a first time configuration.
 
 class Client(QtWidgets.QWidget):
     def __init__(self):
@@ -116,6 +118,7 @@ class Client(QtWidgets.QWidget):
     def solid_set_color(self):
         # Open a color dialog and fetch a color
         color = QtWidgets.QColorDialog.getColor()
+        # TODO: If user hits cancel on the color dialog, do nothing
 
         # Set the background color for the button
         self.ui.btn_solid_color.setStyleSheet("background-color:" + color.name() + ";")
@@ -136,6 +139,7 @@ class Client(QtWidgets.QWidget):
     def ember_set_start_color(self):
         # Open a color dialog get a color
         color = QtWidgets.QColorDialog.getColor()
+        # TODO: If user hits cancel on the color dialog, do nothing
 
         # Set the background color for the button
         self.ui.btn_ember_start_color.setStyleSheet("background-color:" + color.name() + ";")
@@ -150,6 +154,7 @@ class Client(QtWidgets.QWidget):
     def ember_set_end_color(self):
         # Open a color dialog and get a color
         color = QtWidgets.QColorDialog.getColor()
+        # TODO: If user hits cancel on the color dialog, do nothing
 
         # Set the background color for the button
         self.ui.btn_ember_end_color.setStyleSheet("background-color:" + color.name() + ";")
