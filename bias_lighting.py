@@ -19,17 +19,14 @@ EMBER = b'\x03'
 MIMIC = b'\x04'
 
 # These are the default constants unless overridden by the config file.
-BRIGHT_DIV = 4  # Any brightness received is divided by this number to save power
+MAX_BRIGHTNESS = 64     # Max is 255, though capping is reccomended because current draw
 NUM_LEDS = 10
 NEOPIXEL_PIN = 18
 NEOPIXEL_HZ = 800000
 
-# This forms an array to apply BRIGHT_DIV in ember_fn
-EMBER_DIV = np.array((BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, BRIGHT_DIV, 1), dtype=np.uint8)
-
-# Sets pixel i on strip s to color c, where color is a 3 byte binary string
-def setPixel(i, c, s):
-    c = neopixel.Color(c[0]/BRIGHT_DIV, c[1]/BRIGHT_DIV, c[2]/BRIGHT_DIV)
+# Sets pixel i on strip s to color c, where color is a 3 byte numpy array
+def setPixelFromBytes(i, c, s):
+    c = (c[0] << 16) + (c[1] << 8) + c[2]
     #print("Setting pixel %d to %d" % (i, c))
     s.setPixelColor(i, c)
 
@@ -193,7 +190,7 @@ def solid_fn(data, strip):
 
     # Set each pixel color
     for i, p in enumerate(pixels):
-        setPixel(i, p, strip)
+        setPixelFromBytes(i, p, strip)
 
     t.pause()
     strip.show()
@@ -232,7 +229,6 @@ def ember_fn(data, strip):
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
     pixels = np.reshape(data, (-1, 7))
-    pixels = pixels / np.tile(EMBER_DIV, (len(pixels), 1))  # Divide RGB values by BRIGHT_DIV
     # TODO: Find out why using /= complains about "array is read-only"
 
     # If the number of pixels given in data are less than strip.numPixels(),
@@ -316,7 +312,10 @@ try:
 
     NUM_LEDS = settings["numleds"]
 
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
+    # TODO: When an install script is written, give the user the option to select between GRB and RGB strip types.
+    #       RGB should be the default, but sometimes China will accidentally ship GRB variants
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False, strip_type=neopixel.ws.WS2811_STRIP_GRB)
+    strip.setBrightness(MAX_BRIGHTNESS)
     strip.begin()
     t.strip = strip
 
@@ -335,7 +334,8 @@ try:
     
 except Exception as err:
     if not strip:
-        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
+        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False, strip_type=neopixel.ws.WS2811_STRIP_GRB)
+        strip.setBrightness(MAX_BRIGHTNESS)
         strip.begin()
         t.strip = strip
     else:
