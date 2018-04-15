@@ -102,7 +102,7 @@ class Client(QtWidgets.QWidget):
             self.cmd = constants.CMD_EMBER
 
             # Update cmd_str using the color of the buttons and the value of the spinbox
-            start_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
+            start_color = struct.pack('>I', self.ui.btn_ember_start_color.property("color").rgb())[1:]
             end_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
             frames = struct.pack('>B', self.ui.sb_ember_frames.value())
             self.cmd_str = b''.join([start_color, end_color, frames])
