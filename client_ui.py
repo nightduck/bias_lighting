@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'client.ui'
 #
-# Created by: PyQt5 UI code generator 5.10.1
+# Created by: PyQt5 UI code generator 5.9.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -79,6 +79,7 @@ class Ui_Form(object):
         self.sb_num_leds = QtWidgets.QSpinBox(Form)
         self.sb_num_leds.setGeometry(QtCore.QRect(110, 160, 49, 29))
         self.sb_num_leds.setVisible(False)
+        self.sb_num_leds.setMaximum(999)
         self.sb_num_leds.setObjectName("sb_num_leds")
         self.lbl_num_leds = QtWidgets.QLabel(Form)
         self.lbl_num_leds.setGeometry(QtCore.QRect(10, 165, 91, 20))

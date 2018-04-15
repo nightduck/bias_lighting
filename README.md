@@ -62,12 +62,18 @@ implements the correct sockets).
 
 Troubleshooting:
 
-If the LEDs are flickering, you need to blacklist the audio module, as
+* If the LEDs are flickering, you need to blacklist the audio module, as
 mentioned in the neopixel README. Add
 
     blacklist snd_bcm2835
 
 to /etc/modprobe.d/snd-blacklist.conf
 
-
 Alternatively, your Pi may not be receiving enough power. Try powering it with a different USB port
+
+* If the client won't start because of a permission error, you'll have to add yourself to the
+dialout group with
+
+    sudo usermod -a -G dialout your_username_here
+
+Then log out and log back in again
