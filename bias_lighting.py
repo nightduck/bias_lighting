@@ -202,7 +202,8 @@ def music_fn(data, strip):
 # Data is sent with 7 bytes corresponding to a single pixel. The first byte sent
 # is the number of pixels. If this number is less than the total number of
 # pixels, the data received will be copied to the remaining pixels. This allows
-# to define an entire strip to behave the same way by sending only 8 total bytes
+# you to define an entire strip to behave the same way by sending only 7 total
+# bytes
 #
 # The 7 bytes are [ red1, green1, blue1, red2, green2, blue2, speed ]
 # where speed is the number of frames to transition from rgb1 to rgb2 and back
@@ -271,6 +272,7 @@ def config_fn(data, strip):
     t.pause()
     t.strip = neopixel.Adafruit_NeoPixel(d["numleds"], NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
     t.strip.setBrightness(MAX_BRIGHTNESS)
+    t.strip.begin()
 
     # Call the new default animation fn (which will resume the animator if it wishes)
     cmd = init_cmd[0]
