@@ -23,6 +23,7 @@ import traceback
 # TODO: Have a basic config file for the client (to store specs about LED strip, like number and RGBvGRB)
 #       and if the file doesn't exist, do a first time configuration.
 
+
 class Client(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -73,7 +74,7 @@ class Client(QtWidgets.QWidget):
         #   |  command byte  |     string length (2 bytes)   |  Command string (arbitrary length, structure varies) |
         #   +----------------+---------------+---------------+----------------+--------....--------+----------------+
         #
-        sout = b''.join([struct.pack('>B', self.cmd), struct.pack('>H',len(self.cmd_str)), self.cmd_str])
+        sout = b''.join([struct.pack('>B', self.cmd), struct.pack('>H', len(self.cmd_str)), self.cmd_str])
 
         # If the "set as default" checkbox is checked, send a config command. The structure is as follows
         #   +----------------+---------------+---------------+----------------+----------------+-----....-----+
@@ -101,7 +102,7 @@ class Client(QtWidgets.QWidget):
 
             # Update cmd_str using the color of the buttons and the value of the spinbox
             start_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
-            end_color  = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
+            end_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
             frames = struct.pack('>B', self.ui.sb_ember_frames.value())
             self.cmd_str = b''.join([start_color, end_color, frames])
 

@@ -10,7 +10,7 @@ import struct
 from binascii import hexlify
 import pdb
 
-print "Finished imports"
+print("Finished imports")
 
 SOLID = b'\x00'
 CONFIG = b'\x01'
@@ -24,8 +24,9 @@ NUM_LEDS = 10
 NEOPIXEL_PIN = 18
 NEOPIXEL_HZ = 800000
 
+
 # Sets pixel i on strip s to color c, where color is a 3 byte numpy array
-def setPixelFromBytes(i, c, s):
+def set_pixel_from_bytes(i, c, s):
     c = (c[0] << 16) + (c[1] << 8) + c[2]
     #print("Setting pixel %d to %d" % (i, c))
     s.setPixelColor(i, c)
@@ -127,14 +128,6 @@ def lineate(a, b, c):
     # a-b should span -255 to 255, so convert a and b to 16bit signed ints
     return np.uint8(a + (np.int16(b) - np.int16(a)) * abs(c))
 
-# Extract individual 8bit colors from 24bit rgb value
-def red(c):
-    return (c & 0xFF0000) >> 16
-def green(c):
-    return (c & 0xFF00) >> 8
-def blue(c):
-    return c & 0xFF
-
 # Maintains the ember effect. Args are the neopixel strip object with # number of
 # LEDs, an array of length # containing floats between -1 and 1 that marks the
 # state of transition for each LED. c is a 2d array #x7 where each pixel gets a 7
@@ -148,7 +141,7 @@ def ember_ani(strip, states, c):
     for n, s in enumerate(states):
         # Calculate new state
         s = (2.0 / c[n][6]) + s
-        if (s >= 1): s = -1
+        if s >= 1: s = -1
         new_states[n] = s
         
         # Normalize to the [rgb1, rgb2] range, and convert to chars
@@ -177,7 +170,7 @@ def solid_fn(data, strip):
 
     global t    # This is the animator object. This function will pause it
 
-    if (not len(data) % 3 == 0):
+    if not len(data) % 3 == 0:
         raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
     # Separate data into groups of 3 byte strings, and put each of those strings
@@ -187,11 +180,11 @@ def solid_fn(data, strip):
     for i, p in enumerate(group(data, 3)): pixels[i] = p
     m = strip.numPixels()
     n = len(pixels)
-    pixels = np.reshape(np.append(np.tile(pixels, m / n), pixels[:(m % n)]), (-1,3))
+    pixels = np.reshape(np.append(np.tile(pixels, m / n), pixels[:(m % n)]), (-1, 3))
 
     # Set each pixel color
     for i, p in enumerate(pixels):
-        setPixelFromBytes(i, p, strip)
+        set_pixel_from_bytes(i, p, strip)
 
     t.pause()
     strip.show()
@@ -223,14 +216,13 @@ def ember_fn(data, strip):
 
     global t
 
-    if (not len(data) % 7 == 0):
+    if not len(data) % 7 == 0:
         raise Exception("ember_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
     pixels = np.reshape(data, (-1, 7))
-    # TODO: Find out why using /= complains about "array is read-only"
 
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
@@ -293,17 +285,17 @@ def config_fn(data, strip):
 
 # Dictionary mapping command codes to their corresponding functions
 commands = {
-        SOLID : solid_fn,
-        MIMIC : mimic_fn,
-        MUSIC : music_fn,
-        EMBER : ember_fn,
-        CONFIG : config_fn
+        SOLID: solid_fn,
+        MIMIC: mimic_fn,
+        MUSIC: music_fn,
+        EMBER: ember_fn,
+        CONFIG: config_fn
         }
 strip = None
 
 
 # Main loop here
-print "Finished function and constants processing"
+print("Finished function and constants processing")
 
 
 # t is global timer object, it'll get redefined and restarted by any command
@@ -311,7 +303,7 @@ print "Finished function and constants processing"
 t = Animator(0.5, do_nothing, strip, 0)
 t.start()
 
-print "Made animator object"
+print("Made animator object")
 
 # TODO: Restructure this a an if exists(setting.cfg) load setting, else load defaults
 try:
@@ -323,18 +315,19 @@ try:
     init_cmd = config.read()
     config.close()
 
-    print "Read config file"
+    print("Read config file")
 
     NUM_LEDS = settings["numleds"]
 
     # TODO: When an install script is written, give the user the option to select between GRB and RGB strip types.
     #       RGB should be the default, but sometimes China will accidentally ship GRB variants
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False, strip_type=neopixel.ws.WS2811_STRIP_GRB)
+    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
+                                       strip_type=neopixel.ws.WS2811_STRIP_GRB)
     strip.setBrightness(MAX_BRIGHTNESS)
     strip.begin()
     t.strip = strip
 
-    print "Started strip"
+    print("Started strip")
 
     # TODO: Use struct unpacking here so constants can be ints. (init_cmd[0] will return a byte because python2)
     cmd = init_cmd[0]
@@ -345,11 +338,12 @@ try:
         raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
 
     commands[cmd](data, strip)    
-    print "Ran init command"
+    print("Ran init command")
     
 except Exception as err:
     if not strip:
-        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False, strip_type=neopixel.ws.WS2811_STRIP_GRB)
+        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
+                                           strip_type=neopixel.ws.WS2811_STRIP_GRB)
         strip.setBrightness(MAX_BRIGHTNESS)
         strip.begin()
         t.strip = strip
@@ -380,11 +374,11 @@ try:
 
                 print("Cmd: %s, len=%d, data=%s" % (hexlify(cmd), n, hexlify(data)))
 
-                if (not len(data) == n):
+                if not len(data) == n:
                     raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
     
                 # Command received, use to code to call the corresponding fn, which will
-                # hanndle the rest of the serial communication and edit the strip
+                # handle the rest of the serial communication and edit the strip
                 commands[cmd[0]](data, strip)
             except Exception as err:
                 print(err)

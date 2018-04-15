@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'client.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.1
+# Created by: PyQt5 UI code generator 5.10.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -97,7 +97,7 @@ class Ui_Form(object):
         self.sb_fps.setObjectName("sb_fps")
 
         self.retranslateUi(Form)
-        self.tabs_ani.setCurrentIndex(1)
+        self.tabs_ani.setCurrentIndex(0)
         self.btn_display.clicked.connect(Form.send_cmd)
         self.btn_solid_color.clicked.connect(Form.solid_set_color)
         self.btn_ember_start_color.clicked.connect(Form.ember_set_start_color)
