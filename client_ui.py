@@ -111,7 +111,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "Form"))
+        Form.setWindowTitle(_translate("Form", "Bias Lighting"))
         self.btn_display.setText(_translate("Form", "Display"))
         self.lbl_solid_color.setText(_translate("Form", "Color"))
         self.tabs_ani.setTabText(self.tabs_ani.indexOf(self.tab_solid), _translate("Form", "Solid"))
