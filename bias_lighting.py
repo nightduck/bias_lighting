@@ -12,11 +12,11 @@ import pdb
 
 print("Finished imports")
 
-SOLID = b'\x00'
-CONFIG = b'\x01'
-MUSIC = b'\x02'
-EMBER = b'\x03'
-MIMIC = b'\x04'
+SOLID = 0
+CONFIG = 1
+MUSIC = 2
+EMBER = 3
+MIMIC = 4
 
 # These are the default constants unless overridden by the config file.
 MAX_BRIGHTNESS = 64     # Max is 255, though capping is reccomended because current draw
@@ -143,12 +143,11 @@ def ember_ani(strip, states, c):
         s = (2.0 / c[n][6]) + s
         if s >= 1: s = -1
         new_states[n] = s
-        
+
         # Normalize to the [rgb1, rgb2] range, and convert to chars
         r = lineate(c[n][0], c[n][3], s)
         g = lineate(c[n][1], c[n][4], s)
         b = lineate(c[n][2], c[n][5], s)
-
         strip.setPixelColor(n, neopixel.Color(r, g, b))
         #print("Setting pixel %d to (%x, %x, %x)" % (n, r, g, b))
 
@@ -161,14 +160,13 @@ def ember_ani(strip, states, c):
 
 
 # Command functions. These are called immediately after receiving a command
-# from the COM
+# from the COM. Their args are all the same: a numpy array (who's contents vary
+# depending on the command), and the global animator object
 
 # SOLID function. Sets pixels to solid static color. data is a numpy int8 array of
 # the required RGB values. It's length should be a multiple of 3
-def solid_fn(data, strip):
+def solid_fn(data, t):
     print("Solid: %s" % hexlify(data))
-
-    global t    # This is the animator object. This function will pause it
 
     if not len(data) % 3 == 0:
         raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
@@ -178,21 +176,21 @@ def solid_fn(data, strip):
     # array length matches the number of pixels
     pixels = np.empty((len(data)/3, 3), dtype=np.uint8)
     for i, p in enumerate(group(data, 3)): pixels[i] = p
-    m = strip.numPixels()
+    m = t.strip.numPixels()
     n = len(pixels)
     pixels = np.reshape(np.append(np.tile(pixels, m / n), pixels[:(m % n)]), (-1, 3))
 
     # Set each pixel color
     for i, p in enumerate(pixels):
-        set_pixel_from_bytes(i, p, strip)
+        set_pixel_from_bytes(i, p, t.strip)
 
     t.pause()
-    strip.show()
+    t.strip.show()
 
-def mimic_fn(data, strip):
+def mimic_fn(data, t):
     pass
 
-def music_fn(data, strip):
+def music_fn(data, t):
     pass
 
 
@@ -212,10 +210,8 @@ def music_fn(data, strip):
 # color is transitioning, (negative towards rgb1 and positive towards rgb2), and
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
-def ember_fn(data, strip):
+def ember_fn(data, t):
     print("Ember: %s" % hexlify(data))
-
-    global t
 
     if not len(data) % 7 == 0:
         raise Exception("ember_fn: Incorrectly formatted data. len(data)=%d" % len(data))
@@ -228,7 +224,7 @@ def ember_fn(data, strip):
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
     # a perfect multiple, then crop off the overflow
-    m = strip.numPixels()
+    m = t.strip.numPixels()
     n = len(pixels)
     pixels = np.concatenate((np.tile(pixels, (m / n, 1)), pixels[:(m % n)]))
 
@@ -236,9 +232,6 @@ def ember_fn(data, strip):
     # Will be a random number in range [-1,1)
     states = np.random.ranf(m) * 2 - 1
 
-    # BUG: This is why ember flickers, because t isn't global and so many t's are
-    # declared in the background that all compete for pixels. This is also why the
-    # t.stop() command doesn't work after a command is sent
     ember_ani(t.strip, states, pixels)
     t.change_ani(0.1, ember_ani, states, pixels)
 
@@ -246,7 +239,7 @@ def ember_fn(data, strip):
 # TWINKLE fn. Each pixel behave independently. After a given period of time, the
 # pixel will suddenly change color. The random numbers that determine the time
 # periods and the new colors are determined on a gaussian curve
-def twinkle_fn(data, strip):
+def twinkle_fn(data, t):
     pass
 
 
@@ -254,10 +247,8 @@ def twinkle_fn(data, strip):
 # strip. It is then followed by an arbitrary number of bytes the indicate the
 # default command to run on startup. This doesn't affect the LEDs until the
 # program restarts
-def config_fn(data, strip):
+def config_fn(data, t):
     print("Config: %s" % hexlify(data))
-
-    global t
 
     d = {}
     d["numleds"] = (data[0] << 8) + data[1]
@@ -270,19 +261,19 @@ def config_fn(data, strip):
 
     # Pause the animator and update the strip with the new number of LEDs.
     t.pause()
-    t.strip = neopixel.Adafruit_NeoPixel(d["numleds"], NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False)
+    t.strip = neopixel.Adafruit_NeoPixel(d["numleds"], NEOPIXEL_PIN, NEOPIXEL_HZ,
+                                         5, False, strip_type=neopixel.ws.WS2811_STRIP_GRB)
     t.strip.setBrightness(MAX_BRIGHTNESS)
     t.strip.begin()
 
     # Call the new default animation fn (which will resume the animator if it wishes)
     cmd = init_cmd[0]
-    n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
-    data = np.frombuffer(init_cmd[3:], dtype=np.uint8)
+    n = (init_cmd[1] << 8) + init_cmd[2]
 
-    if len(data) != n:
-        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
+    if len(init_cmd[3:]) != n:
+        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(init_cmd[3:])))
 
-    commands[cmd](data, strip)
+    commands[cmd](init_cmd[3:], t)
 
 
 # Dictionary mapping command codes to their corresponding functions
@@ -293,7 +284,6 @@ commands = {
         EMBER: ember_fn,
         CONFIG: config_fn
         }
-strip = None
 
 
 # Main loop here
@@ -302,7 +292,7 @@ print("Finished function and constants processing")
 
 # t is global timer object, it'll get redefined and restarted by any command
 # fn that requires continued animation after returning
-t = Animator(0.5, do_nothing, strip, 0)
+t = Animator(0.5, do_nothing, None, 0)
 t.start()
 
 print("Made animator object")
@@ -314,7 +304,7 @@ try:
     # represents the default command to use on startup
     config = open("settings.cfg", 'rb')
     settings = json.loads(config.readline())
-    init_cmd = config.read()
+    init_cmd = np.frombuffer(config.read(), dtype=np.uint8)
     config.close()
 
     print("Read config file")
@@ -323,32 +313,30 @@ try:
 
     # TODO: When an install script is written, give the user the option to select between GRB and RGB strip types.
     #       RGB should be the default, but sometimes China will accidentally ship GRB variants
-    strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
+    t.strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
                                        strip_type=neopixel.ws.WS2811_STRIP_GRB)
-    strip.setBrightness(MAX_BRIGHTNESS)
-    strip.begin()
-    t.strip = strip
+    t.strip.setBrightness(MAX_BRIGHTNESS)
+    t.strip.begin()
 
     print("Started strip")
 
     # TODO: Use struct unpacking here so constants can be ints. (init_cmd[0] will return a byte because python2)
     cmd = init_cmd[0]
-    n = (ord(init_cmd[1]) << 8) + ord(init_cmd[2])
-    data = np.frombuffer(init_cmd[3:], dtype=np.uint8)
+    n = (init_cmd[1] << 8) + init_cmd[2]
+    data = init_cmd[3:]
 
     if len(data) != n:
         raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
 
-    commands[cmd](data, strip)    
+    commands[cmd](data, t) 
     print("Ran init command")
     
 except Exception as err:
-    if not strip:
-        strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
+    if not t.strip:
+        t.strip = neopixel.Adafruit_NeoPixel(NUM_LEDS, NEOPIXEL_PIN, NEOPIXEL_HZ, 5, False,
                                            strip_type=neopixel.ws.WS2811_STRIP_GRB)
-        strip.setBrightness(MAX_BRIGHTNESS)
-        strip.begin()
-        t.strip = strip
+        t.strip.setBrightness(MAX_BRIGHTNESS)
+        t.strip.begin()
     else:
         print (err)
 
@@ -381,7 +369,7 @@ try:
     
                 # Command received, use to code to call the corresponding fn, which will
                 # handle the rest of the serial communication and edit the strip
-                commands[cmd[0]](data, strip)
+                commands[ord(cmd)](data, t)
             except Exception as err:
                 print(err)
                 raise
@@ -389,9 +377,9 @@ try:
 except KeyboardInterrupt:
     t.stop()
     u.close()
-    blackout(strip)
+    blackout(t.strip)
 except Exception as Err:
     t.stop()
     u.close()
-    blackout(strip)
+    blackout(t.strip)
     raise
