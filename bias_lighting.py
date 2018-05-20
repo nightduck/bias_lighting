@@ -76,6 +76,8 @@ class Animator(threading.Thread):
             if self.threadWait.is_set():    # Continue until signaled to stop
                 t = time.time()
                 try:
+                    # Run the specified animation function, using it's return value as the new
+                    # persistent data
                     self.persist_data = self.target(self.strip, self.persist_data, *self.fn_args)
                 except Exception as err:
                     # If the animation crashes set threadPaused event so config_fn doesn't hang
