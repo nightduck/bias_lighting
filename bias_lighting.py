@@ -207,7 +207,8 @@ def solid_fn(data, t):
     sum = 0
     for i, l in enumerate(swath_lengths):               # For each swath length
         for j in range(sum, sum+l):                     # For each pixel in that swath
-            set_pixel_from_bytes(j, p[i], t.strip)
+            set_pixel_from_bytes(j, pixels[i], t.strip)
+        sum += l
 
     t.pause()
     t.strip.show()
