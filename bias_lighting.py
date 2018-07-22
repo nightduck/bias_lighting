@@ -39,27 +39,18 @@ def blackout(strip):
 
 # Flashes all LEDs red and then goes black. Used to indicate the program crashed
 def flash_error(strip):
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, 0xFF0000)
-    strip.show()
-
-    sleep(0.1)
-
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, 0)
-    strip.show()
-
-    sleep(0.1)
-
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, 0xFF0000)
-    strip.show()
-
-    sleep(0.1)
-
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, 0)
-    strip.show()
+    for i in range(3):
+        for i in range(strip.numPixels()):
+            strip.setPixelColor(i, 0xFF0000)
+        strip.show()
+    
+        sleep(0.2)
+    
+        for i in range(strip.numPixels()):
+            strip.setPixelColor(i, 0)
+        strip.show()
+    
+        sleep(0.2)
 
 def do_nothing(*args):
     pass
