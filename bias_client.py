@@ -106,7 +106,7 @@ class Client(QtWidgets.QWidget):
             start_color = struct.pack('>I', self.ui.btn_ember_start_color.property("color").rgb())[1:]
             end_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
             frames = struct.pack('>B', self.ui.sb_ember_frames.value())
-            self.cmd_str = b''.join([start_color, end_color, frames])
+            self.cmd_str = b''.join([start_color, end_color, frames, b'\x7F'])
 
     ############################################################################
 
@@ -125,7 +125,7 @@ class Client(QtWidgets.QWidget):
         self.ui.btn_solid_color.setProperty("color", color)
 
         # Convert the color to a 3 byte array (ignoring alpha channel) and save that into the command string
-        self.cmd_str = struct.pack('>I', color.rgb())[1:]
+        self.cmd_str = struct.pack('>I', color.rgb())[1:] + b'\x7F'
 
     ############################################################################
 
@@ -164,7 +164,7 @@ class Client(QtWidgets.QWidget):
         color = struct.pack('>I', color.rgb())[1:]
 
         # Insert the color into the command string as bytes 3-5, inclusive
-        self.cmd_str = b''.join([self.cmd_str[0:3], color, struct.pack('>B', self.cmd_str[6])])
+        self.cmd_str = b''.join([self.cmd_str[0:3], color, self.cmd_str[6:]])
 
     def ember_set_frames(self, frames):
         # Save the number of frames
