@@ -222,28 +222,37 @@ def music_fn(data, t):
 # EMBER fn. This animation makes each pixel transition between two given colors
 # Each pixel is independent of each other.
 #
-# Data is sent with 7 bytes corresponding to a single pixel. The first byte sent
-# is the number of pixels. If this number is less than the total number of
-# pixels, the data received will be copied to the remaining pixels. This allows
-# you to define an entire strip to behave the same way by sending only 7 total
-# bytes
+# The data is divided into swaths. Every pixel in a given swath follows the same
+# rules (but due to randomness, will likely not all be the same color at the same
+# time). Each swath is defined by 8 bytes.
 #
-# The 7 bytes are [ red1, green1, blue1, red2, green2, blue2, speed ]
+# The 8 bytes are [ red1, green1, blue1, red2, green2, blue2, speed, num pixels ]
 # where speed is the number of frames to transition from rgb1 to rgb2 and back
 # Each pixel is initialized to a value between rgb1 and rgb2. Persistent data is
 # a float between -1 and 1. Where the magnitude determines which direction the
 # color is transitioning, (negative towards rgb1 and positive towards rgb2), and
 # the magnitude shows the total progress (0 and 1 being the start and end points
 # for rgb1>rgb2, whereas -1 and 0 are the start and end points for rgb2>rgb1)
+# Num pixels defines the number of pixels in a given swath. The sum of all swaths
+# is expected to equal the total number of pixels. If it exceeds, any extra data
+# is ignored. If it falls short, the remaining pixels retain their last value
 def ember_fn(data, t):
     print("Ember: %s" % hexlify(data))
 
-    assert len(data) % 7 == 0, "ember_fn: Incorrectly formatted data. len(data)=%d" % len(data)
+    assert len(data) % 8 == 0, "ember_fn: Incorrectly formatted data. len(data)=%d" % len(data)
+
+    # Expand out the swaths into individual pixels by copying their data over again, ie
+    # Before: [ 4, 5, 6, 1, 2, 3, 10, 4 | 12, 15, ... ]
+    # After:  [ 4, 5, 6, 1, 2, 3, 10 | 4, 5, 6, 1, 2, 3, 10, ... (x4) | 12, 15 ...]
+    np.reshape(data, (-1, 8))
+    seed = np.empty(0, np.uint8)
+    for swath in data:
+        seed = np.concatenate((seed, np.tile(swath[:7], (swath[7], 1))))
 
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
     # of frames it should take to transition from one color to the other and back
-    pixels = np.reshape(data, (-1, 7))
+    pixels = np.reshape(seed, (-1, 7))
 
     # If the number of pixels given in data are less than strip.numPixels(),
     # then copy paste what was given until it's equal. If the total pixels isn't
