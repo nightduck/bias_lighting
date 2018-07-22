@@ -403,7 +403,7 @@ try:
 except KeyboardInterrupt:
     t.stop()
     u.close()
-    flash_error(t.strip)
+    blackout(t.strip)
 except Exception as Err:
     t.stop()
     u.close()
