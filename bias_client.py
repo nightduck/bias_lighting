@@ -67,6 +67,7 @@ class Client(QtWidgets.QWidget):
        
         self.ui = Ui_Form()
         self.ui.setupUi(self)
+        self.select_ani(self.ui.tabs_ani.currentIndex())
         self.show()
 
     def send_cmd(self):
