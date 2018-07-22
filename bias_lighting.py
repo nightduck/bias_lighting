@@ -9,6 +9,7 @@ import json
 import struct
 from binascii import hexlify
 import pdb
+from time import sleep
 
 print("Finished imports")
 
@@ -32,6 +33,30 @@ def set_pixel_from_bytes(i, c, s):
     s.setPixelColor(i, c)
 
 def blackout(strip):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, 0)
+    strip.show()
+
+# Flashes all LEDs red and then goes black. Used to indicate the program crashed
+def flash_error(strip):
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, 0xFF0000)
+    strip.show()
+
+    sleep(0.1)
+
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, 0)
+    strip.show()
+
+    sleep(0.1)
+
+    for i in range(strip.numPixels()):
+        strip.setPixelColor(i, 0xFF0000)
+    strip.show()
+
+    sleep(0.1)
+
     for i in range(strip.numPixels()):
         strip.setPixelColor(i, 0)
     strip.show()
@@ -379,9 +404,9 @@ try:
 except KeyboardInterrupt:
     t.stop()
     u.close()
-    blackout(t.strip)
+    flash_error(t.strip)
 except Exception as Err:
     t.stop()
     u.close()
-    blackout(t.strip)
+    flash_error(t.strip)
     raise
