@@ -180,25 +180,34 @@ def ember_ani(strip, states, c):
 # depending on the command), and the global animator object
 
 # SOLID function. Sets pixels to solid static color. data is a numpy int8 array of
-# the required RGB values. It's length should be a multiple of 3
+# the required RGB values. It's length should be a multiple of 4. 3 bytes for the rgb
+# values and a 4th indicating how many pixels should be mapped to the color. The sum
+# of all numbers are expected to equal the total number of pixels. If it exceeds, any
+# extra data is ignored. If it falls short, the remaining pixels retain their last value
+# Data format:
+#   +-------+-------+-------+-------+-------+-------+-------+-------+--...
+#   |  red  |  blue | Green |  Num  |  red  |  blue | green |  num  |  ...
+#   +-------+-------+-------+-------+-------+-------+-------+-------+--...
 def solid_fn(data, t):
     print("Solid: %s" % hexlify(data))
 
-    if not len(data) % 3 == 0:
+    if not len(data) % 4 == 0:
         raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
 
-    # Separate data into groups of 3 byte strings, and put each of those strings
-    # into a numpy array. Copy and paste that data over and over again until the
-    # array length matches the number of pixels
-    pixels = np.empty((len(data)/3, 3), dtype=np.uint8)
-    for i, p in enumerate(group(data, 3)): pixels[i] = p
-    m = t.strip.numPixels()
-    n = len(pixels)
-    pixels = np.reshape(np.append(np.tile(pixels, m / n), pixels[:(m % n)]), (-1, 3))
+    # Separate data into groups of 4 byte strings, and put the first 3 bytes of
+    # each of those strings into a numpy array. And the 4th byte of each group into
+    # a separate array.
+    pixels = np.empty((len(data)/4, 3), dtype=np.uint8)
+    swath_lengths = np.empty(len(data)/4, dtype=np.uint8)
+    for i, p in enumerate(group(data, 4)):
+        pixels[i] = p[:3]
+        swath_lengths[i] = p[3]
 
-    # Set each pixel color
-    for i, p in enumerate(pixels):
-        set_pixel_from_bytes(i, p, t.strip)
+    # For each swath, get the length and color all pixels in that swath the same color
+    sum = 0
+    for i, l in enumerate(swath_lengths):               # For each swath length
+        for j in range(sum, sum+l):                     # For each pixel in that swath
+            set_pixel_from_bytes(j, p[i], t.strip)
 
     t.pause()
     t.strip.show()

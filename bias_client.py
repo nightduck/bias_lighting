@@ -97,7 +97,7 @@ class Client(QtWidgets.QWidget):
             self.cmd = constants.CMD_SOLID
 
             # Update cmd_str using the color of the buttons (which are persistent after switching tabs)
-            self.cmd_str = struct.pack('>I', self.ui.btn_solid_color.property("color").rgb())[1:]
+            self.cmd_str = struct.pack('>I', self.ui.btn_solid_color.property("color").rgb())[1:] + b'\x7F'
 
         elif ani == constants.TAB_EMBER:
             self.cmd = constants.CMD_EMBER
