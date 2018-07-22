@@ -191,8 +191,7 @@ def ember_ani(strip, states, c):
 def solid_fn(data, t):
     print("Solid: %s" % hexlify(data))
 
-    if not len(data) % 4 == 0:
-        raise Exception("solid_fn: Incorrectly formatted data. len(data)=%d" % len(data))
+    assert len(data) % 4 == 0, "solid_fn: Incorrectly formatted data. len(data)=%d" % len(data)
 
     # Separate data into groups of 4 byte strings, and put the first 3 bytes of
     # each of those strings into a numpy array. And the 4th byte of each group into
@@ -239,8 +238,7 @@ def music_fn(data, t):
 def ember_fn(data, t):
     print("Ember: %s" % hexlify(data))
 
-    if not len(data) % 7 == 0:
-        raise Exception("ember_fn: Incorrectly formatted data. len(data)=%d" % len(data))
+    assert len(data) % 7 == 0, "ember_fn: Incorrectly formatted data. len(data)=%d" % len(data)
 
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
@@ -296,8 +294,7 @@ def config_fn(data, t):
     cmd = init_cmd[0]
     n = (init_cmd[1] << 8) + init_cmd[2]
 
-    if len(init_cmd[3:]) != n:
-        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(init_cmd[3:])))
+    assert len(init_cmd[3:]) == n, "Incorrectly sized data packet. Expected %x, got %x" % (n, len(init_cmd[3:]))
 
     commands[cmd](init_cmd[3:], t)
 
@@ -351,8 +348,7 @@ try:
     n = (init_cmd[1] << 8) + init_cmd[2]
     data = init_cmd[3:]
 
-    if len(data) != n:
-        raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
+    assert len(data) == n, "Incorrectly sized data packet. Expected %x, got %x" % (n, len(data))
 
     commands[cmd](data, t) 
     print("Ran init command")
@@ -390,8 +386,7 @@ try:
 
                 print("Cmd: %s, len=%d, data=%s" % (hexlify(cmd), n, hexlify(data)))
 
-                if not len(data) == n:
-                    raise Exception("Incorrectly sized data packet. Expected %x, got %x" % (n, len(data)))
+                assert len(data) == n, "Incorrectly sized data packet. Expected %x, got %x" % (n, len(data))
     
                 # Command received, use to code to call the corresponding fn, which will
                 # handle the rest of the serial communication and edit the strip
