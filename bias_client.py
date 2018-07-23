@@ -168,7 +168,7 @@ class Client(QtWidgets.QWidget):
 
     def ember_set_frames(self, frames):
         # Save the number of frames
-        self.cmd_str = b''.join([self.cmd_str[:6], struct.pack('>B', frames)])
+        self.cmd_str = b''.join([self.cmd_str[:6], struct.pack('>B', frames), struct.pack('>B', self.cmd_str[7])])
 
 
 print("Starting app")
