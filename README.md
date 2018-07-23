@@ -77,3 +77,7 @@ dialout group with
     sudo usermod -a -G dialout your_username_here
 
 Then log out and log back in again
+
+
+# Installation
+setup.py script is coming. For now, just copy bias_lighting.py to the /etc/init.d folder on your pi

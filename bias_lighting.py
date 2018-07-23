@@ -244,10 +244,10 @@ def ember_fn(data, t):
     # Expand out the swaths into individual pixels by copying their data over again, ie
     # Before: [ 4, 5, 6, 1, 2, 3, 10, 4 | 12, 15, ... ]
     # After:  [ 4, 5, 6, 1, 2, 3, 10 | 4, 5, 6, 1, 2, 3, 10, ... (x4) | 12, 15 ...]
-    np.reshape(data, (-1, 8))
+    data = np.reshape(data, (-1, 8))
     seed = np.empty(0, np.uint8)
     for swath in data:
-        seed = np.concatenate((seed, np.tile(swath[:7], (swath[7], 1))))
+        seed = np.concatenate((seed, np.tile(swath[:7], (swath[7]))))
 
     # Group data in chunks of 7, The first 3 bytes represent the rgb of the start
     # color. The next 3 are the end color, and the last byte represents the number
