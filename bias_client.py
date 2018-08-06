@@ -97,7 +97,7 @@ class Client(QtWidgets.QWidget):
             self.cmd = constants.CMD_SOLID
 
             # Update cmd_str using the color of the buttons (which are persistent after switching tabs)
-            self.cmd_str = struct.pack('>I', self.ui.btn_solid_color.property("color").rgb())[1:] + b'\x7F'
+            self.cmd_str = struct.pack('>I', self.ui.btn_solid_color.property("color").rgb())[1:] + b'\xFF'
 
         elif ani == constants.TAB_EMBER:
             self.cmd = constants.CMD_EMBER
@@ -106,7 +106,7 @@ class Client(QtWidgets.QWidget):
             start_color = struct.pack('>I', self.ui.btn_ember_start_color.property("color").rgb())[1:]
             end_color = struct.pack('>I', self.ui.btn_ember_end_color.property("color").rgb())[1:]
             frames = struct.pack('>B', self.ui.sb_ember_frames.value())
-            self.cmd_str = b''.join([start_color, end_color, frames, b'\x7F'])
+            self.cmd_str = b''.join([start_color, end_color, frames, b'\xFF'])
 
     ############################################################################
 
@@ -125,7 +125,7 @@ class Client(QtWidgets.QWidget):
         self.ui.btn_solid_color.setProperty("color", color)
 
         # Convert the color to a 3 byte array (ignoring alpha channel) and save that into the command string
-        self.cmd_str = struct.pack('>I', color.rgb())[1:] + b'\x7F'
+        self.cmd_str = struct.pack('>I', color.rgb())[1:] + b'\xFF'
 
     ############################################################################
 
