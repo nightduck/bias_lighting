@@ -1,5 +1,7 @@
+## Update.
+This is no longer in development. Sorry, I'm easily distracted.
 
-#Random dev notes
+# Random Dev Notes
 
 These are thoughts to myself while developing
 
